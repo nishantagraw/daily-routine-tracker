@@ -12,8 +12,8 @@ from datetime import datetime
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
-# MongoDB Connection
-MONGO_URI = os.environ.get('MONGO_URI', 'mongodb+srv://routinetracker:9012373204QWE@cluster0.f7rrvyu.mongodb.net/?appName=Cluster0')
+# MongoDB Connection - Get from environment variable only (no hardcoded password!)
+MONGO_URI = os.environ.get('MONGO_URI')
 
 # Connect to MongoDB
 try:
