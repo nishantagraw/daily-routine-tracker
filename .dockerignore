@@ -1,0 +1,11 @@
+# Ignore these when building Docker image
+__pycache__/
+*.pyc
+*.pyo
+.env
+.git
+.gitignore
+*.md
+service-account.json
+config.json
+*.log
