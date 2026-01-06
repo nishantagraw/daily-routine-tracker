@@ -1,31 +1,18 @@
 """
-Daily Routine Tracker - Production Server with MongoDB
-Serves both API and frontend for Render deployment
+Daily Routine Tracker - Simple Production Server
+Works without MongoDB - uses in-memory storage
 """
 
 from flask import Flask, jsonify, request, send_from_directory, send_file
 from flask_cors import CORS
-from pymongo import MongoClient
 import os
-from datetime import datetime
+import json
 
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
-# MongoDB Connection
-MONGO_URI = os.environ.get('MONGO_URI', 'mongodb+srv://routinetracker:9012373204QWE@cluster0.f7rrvyu.mongodb.net/?appName=Cluster0')
-
-# Connect to MongoDB
-try:
-    client = MongoClient(MONGO_URI)
-    db = client['routine_tracker']
-    habits_collection = db['habits']
-    settings_collection = db['settings']
-    print("✅ Connected to MongoDB!")
-except Exception as e:
-    print(f"❌ MongoDB connection failed: {e}")
-    client = None
-    db = None
+# In-memory data storage (resets when server restarts)
+DATA_FILE = os.path.join(os.path.dirname(__file__), 'tracker_data.json')
 
 # Default habits
 DEFAULT_HABITS = [
@@ -43,53 +30,38 @@ DEFAULT_HABITS = [
 ]
 
 def get_january_dates():
-    """Get dates from Jan 5 to Jan 31"""
     return [f"{i:02d} Jan" for i in range(5, 32)]
 
+# In-memory data
+app_data = {
+    "dates": get_january_dates(),
+    "habits": DEFAULT_HABITS.copy()
+}
+
 def load_data():
-    """Load data from MongoDB"""
-    if not db:
-        return {"dates": get_january_dates(), "habits": DEFAULT_HABITS}
-    
+    """Load data from file or use defaults"""
+    global app_data
     try:
-        # Get settings (dates)
-        settings = settings_collection.find_one({"type": "dates"})
-        dates = settings.get("dates", get_january_dates()) if settings else get_january_dates()
-        
-        # Get habits
-        habits = list(habits_collection.find({}, {"_id": 0}))
-        
-        if not habits:
-            # Initialize with defaults
-            for habit in DEFAULT_HABITS:
-                habits_collection.insert_one(habit)
-            habits = DEFAULT_HABITS.copy()
-            
-            # Save dates
-            settings_collection.update_one(
-                {"type": "dates"},
-                {"$set": {"dates": dates}},
-                upsert=True
-            )
-        
-        return {"dates": dates, "habits": habits}
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if data.get('habits') and data.get('dates'):
+                    app_data = data
+                    return data
     except Exception as e:
         print(f"Error loading data: {e}")
-        return {"dates": get_january_dates(), "habits": DEFAULT_HABITS}
+    return app_data
 
-def save_habit(habit_name, daily_status):
-    """Save habit status to MongoDB"""
-    if not db:
-        return False
+def save_data():
+    """Save data to file"""
     try:
-        habits_collection.update_one(
-            {"name": habit_name},
-            {"$set": {"daily_status": daily_status}}
-        )
-        return True
+        with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            json.dump(app_data, f, indent=2, ensure_ascii=False)
     except Exception as e:
-        print(f"Error saving habit: {e}")
-        return False
+        print(f"Error saving data: {e}")
+
+# Load data on startup
+load_data()
 
 # ===================================
 # Static File Routes (Frontend)
@@ -101,6 +73,8 @@ def serve_index():
 
 @app.route('/<path:filename>')
 def serve_static(filename):
+    if filename.startswith('api/'):
+        return jsonify({"error": "Not found"}), 404
     return send_from_directory('.', filename)
 
 # ===================================
@@ -109,10 +83,9 @@ def serve_static(filename):
 
 @app.route('/api/habits', methods=['GET'])
 def get_habits():
-    data = load_data()
     return jsonify({
-        "habits": data["habits"],
-        "dates": data["dates"],
+        "habits": app_data["habits"],
+        "dates": app_data["dates"],
         "spreadsheet_url": ""
     })
 
@@ -124,17 +97,12 @@ def update_status():
         date = req_data.get('date')
         status = req_data.get('status')
         
-        if db:
-            # Get current habit
-            habit = habits_collection.find_one({"name": habit_name})
-            if habit:
-                daily_status = habit.get("daily_status", {})
-                daily_status[date] = status
-                habits_collection.update_one(
-                    {"name": habit_name},
-                    {"$set": {"daily_status": daily_status}}
-                )
+        for habit in app_data["habits"]:
+            if habit["name"] == habit_name:
+                habit["daily_status"][date] = status
+                break
         
+        save_data()
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -152,8 +120,8 @@ def add_habit():
             "daily_status": {}
         }
         
-        if db:
-            habits_collection.insert_one(new_habit)
+        app_data["habits"].append(new_habit)
+        save_data()
         
         return jsonify({"success": True, "message": f"Added: {habit_name}"})
     except Exception as e:
@@ -165,8 +133,8 @@ def delete_habit():
         req_data = request.json
         habit_name = req_data.get('habit_name')
         
-        if db:
-            habits_collection.delete_one({"name": habit_name})
+        app_data["habits"] = [h for h in app_data["habits"] if h["name"] != habit_name]
+        save_data()
         
         return jsonify({"success": True, "message": f"Deleted: {habit_name}"})
     except Exception as e:
@@ -180,12 +148,13 @@ def edit_habit():
         new_name = req_data.get('new_name')
         emoji = req_data.get('emoji', '📌')
         
-        if db:
-            habits_collection.update_one(
-                {"name": old_name},
-                {"$set": {"name": f"{emoji} {new_name}", "emoji": emoji}}
-            )
+        for habit in app_data["habits"]:
+            if habit["name"] == old_name:
+                habit["name"] = f"{emoji} {new_name}"
+                habit["emoji"] = emoji
+                break
         
+        save_data()
         return jsonify({"success": True, "message": f"Updated habit"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -193,15 +162,13 @@ def edit_habit():
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     try:
-        data = load_data()
-        
         total_completed = 0
         total_missed = 0
         best_streak = 0
         
-        for habit in data["habits"]:
+        for habit in app_data["habits"]:
             streak = 0
-            for date in data["dates"]:
+            for date in app_data["dates"]:
                 status = habit.get("daily_status", {}).get(date, "")
                 if status == "✓":
                     total_completed += 1
@@ -219,8 +186,8 @@ def get_stats():
             "total_completed": total_completed,
             "total_missed": total_missed,
             "best_streak": best_streak,
-            "total_habits": len(data["habits"]),
-            "total_days": len(data["dates"])
+            "total_habits": len(app_data["habits"]),
+            "total_days": len(app_data["dates"])
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -228,8 +195,7 @@ def get_stats():
 @app.route('/api/week/<int:week_num>', methods=['GET'])
 def get_week(week_num):
     try:
-        data = load_data()
-        dates = data["dates"]
+        dates = app_data["dates"]
         
         start_idx = (week_num - 1) * 7
         end_idx = min(start_idx + 7, len(dates))
@@ -238,19 +204,19 @@ def get_week(week_num):
         return jsonify({
             "week": week_num,
             "dates": week_dates,
-            "habits": data["habits"]
+            "habits": app_data["habits"]
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/sheets/status', methods=['GET'])
 def sheets_status():
-    return jsonify({"connected": db is not None, "message": "MongoDB connected" if db else "No database"})
+    return jsonify({"connected": True, "message": "File-based storage"})
 
 @app.route('/api/config', methods=['GET', 'POST'])
 def config():
-    return jsonify({"database": "MongoDB Atlas", "connected": db is not None})
+    return jsonify({"storage": "file", "connected": True})
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port, debug=False)
