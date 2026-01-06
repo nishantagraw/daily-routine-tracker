@@ -16,16 +16,26 @@ CORS(app)
 MONGO_URI = os.environ.get('MONGO_URI')
 
 # Connect to MongoDB
-try:
-    client = MongoClient(MONGO_URI)
-    db = client['routine_tracker']
-    habits_collection = db['habits']
-    settings_collection = db['settings']
-    print("✅ Connected to MongoDB!")
-except Exception as e:
-    print(f"❌ MongoDB connection failed: {e}")
-    client = None
-    db = None
+client = None
+db = None
+habits_collection = None
+settings_collection = None
+
+if MONGO_URI:
+    try:
+        client = MongoClient(MONGO_URI)
+        db = client['routine_tracker']
+        habits_collection = db['habits']
+        settings_collection = db['settings']
+        # Test connection
+        client.server_info()
+        print("✅ Connected to MongoDB!")
+    except Exception as e:
+        print(f"❌ MongoDB connection failed: {e}")
+        client = None
+        db = None
+else:
+    print("⚠️ MONGO_URI not set - using default data (not persistent)")
 
 # Default habits
 DEFAULT_HABITS = [
