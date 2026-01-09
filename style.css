@@ -1462,33 +1462,56 @@ body::before {
         min-width: 70px;
     }
 
-    /* Habit Table */
+    /* Habit Table - COMPACT for mobile */
     .tracker-table {
-        font-size: 0.8rem;
+        font-size: 0.7rem;
     }
 
     .tracker-table th,
     .tracker-table td {
-        padding: 8px 6px;
+        padding: 4px 2px;
     }
 
     .habit-name {
-        min-width: 120px;
-        font-size: 0.85rem;
+        min-width: 80px;
+        max-width: 100px;
+        font-size: 0.7rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .date-cell {
-        min-width: 50px;
+        min-width: 32px;
+        font-size: 0.6rem;
+        padding: 2px !important;
     }
 
-    .status-bubble {
-        width: 28px;
-        height: 28px;
-        font-size: 0.9rem;
+    .status-bubble,
+    .status-completed,
+    .status-missed,
+    .status-pending {
+        width: 22px;
+        height: 22px;
+        font-size: 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .streak-cell {
-        min-width: 50px;
+        min-width: 35px;
+        font-size: 0.7rem;
+    }
+
+    /* Hide progress column on mobile to save space */
+    .progress-cell {
+        display: none;
+    }
+
+    /* Compact actions */
+    .actions-cell {
+        min-width: 45px;
     }
 
     /* Charts */
@@ -1546,35 +1569,55 @@ body::before {
 @media (max-width: 480px) {
     .stats-grid {
         grid-template-columns: 1fr 1fr;
-        gap: 8px;
+        gap: 6px;
     }
 
     .stat-card {
-        padding: 12px;
+        padding: 10px;
     }
 
     .stat-value {
-        font-size: 1.3rem;
+        font-size: 1.2rem;
+    }
+
+    .stat-label {
+        font-size: 0.65rem;
     }
 
     .week-btn {
-        padding: 6px 12px;
-        font-size: 0.8rem;
+        padding: 5px 10px;
+        font-size: 0.75rem;
     }
 
     .habit-name {
-        min-width: 100px;
-        font-size: 0.8rem;
+        min-width: 60px;
+        max-width: 80px;
+        font-size: 0.65rem;
+    }
+
+    .date-cell {
+        min-width: 28px;
+        font-size: 0.55rem;
+    }
+
+    .status-bubble,
+    .status-completed,
+    .status-missed,
+    .status-pending {
+        width: 20px;
+        height: 20px;
+        font-size: 0.7rem;
     }
 
     .tracker-table-wrapper {
-        margin: 0 -10px;
-        padding: 0 10px;
+        margin: 0 -5px;
+        padding: 0;
+        overflow-x: auto;
     }
 
     /* Hide actions on very small screens */
     .actions-cell {
-        min-width: 50px;
+        display: none;
     }
 
     .edit-btn,

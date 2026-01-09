@@ -100,6 +100,45 @@ async function initializeApp() {
 // Data Loading
 // ===================================
 
+// Calculate stats from local data instantly
+function calculateLocalStats() {
+    let totalCompleted = 0;
+    let totalMissed = 0;
+    let bestStreak = 0;
+
+    habitsData.forEach(habit => {
+        let streak = 0;
+        const status = habit.daily_status || {};
+
+        Object.values(status).forEach(s => {
+            if (s === '✓') {
+                totalCompleted++;
+                streak++;
+                bestStreak = Math.max(bestStreak, streak);
+            } else if (s === '✗') {
+                totalMissed++;
+                streak = 0;
+            }
+        });
+    });
+
+    const total = totalCompleted + totalMissed;
+    const progress = total > 0 ? Math.round((totalCompleted / total) * 100) : 0;
+
+    return { progress, totalCompleted, totalMissed, bestStreak };
+}
+
+// Update stats display instantly
+function updateStatsDisplay() {
+    const stats = calculateLocalStats();
+
+    document.getElementById('overallProgress').textContent = `${stats.progress}%`;
+    document.getElementById('progressBar').style.width = `${stats.progress}%`;
+    document.getElementById('bestStreak').textContent = stats.bestStreak;
+    document.getElementById('totalCompleted').textContent = stats.totalCompleted;
+    document.getElementById('totalMissed').textContent = stats.totalMissed;
+}
+
 async function loadStats() {
     try {
         const response = await fetch(`${API_BASE}/stats`);
@@ -111,7 +150,7 @@ async function loadStats() {
         const completed = stats.total_completed ?? 0;
         const missed = stats.total_missed ?? 0;
 
-        document.getElementById('overallProgress').textContent = `${progress}%`;
+        document.getElementById('overallProgress').textContent = progress > 0 ? `${progress}%` : '0%';
         document.getElementById('progressBar').style.width = `${progress}%`;
         document.getElementById('bestStreak').textContent = streak;
         document.getElementById('totalCompleted').textContent = completed;
@@ -119,12 +158,8 @@ async function loadStats() {
 
     } catch (error) {
         console.error('Failed to load stats:', error);
-        // Set defaults on error
-        document.getElementById('overallProgress').textContent = '0%';
-        document.getElementById('progressBar').style.width = '0%';
-        document.getElementById('bestStreak').textContent = '0';
-        document.getElementById('totalCompleted').textContent = '0';
-        document.getElementById('totalMissed').textContent = '0';
+        // Use local stats on error
+        updateStatsDisplay();
     }
 }
 
@@ -317,28 +352,24 @@ async function toggleStatus(habitName, date, cell) {
         if (!habit.daily_status) habit.daily_status = {};
         habit.daily_status[date] = newSymbol;
         saveToLocalStorage();
+
+        // Update stats and charts IMMEDIATELY (before server call)
+        updateStatsDisplay();
+        renderCharts();
     }
 
     // Update server (in background, don't wait)
-    try {
-        fetch(`${API_BASE}/habits/status`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                habit_name: habitName,
-                date: date,
-                status: newSymbol
-            })
-        }).catch(e => console.log('Server sync failed, but local save succeeded'));
-
-        // Reload stats after update
-        await loadStats();
-
-    } catch (error) {
-        console.error('Failed to update status:', error);
-    }
+    fetch(`${API_BASE}/habits/status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            habit_name: habitName,
+            date: date,
+            status: newSymbol
+        })
+    }).catch(e => console.log('Server sync failed, but local save succeeded'));
 }
 
 // ===================================
