@@ -62,15 +62,13 @@ async function initializeApp() {
     showLoading();
 
     try {
-        // Initialize/get spreadsheet
+        // Try to initialize with server
         const initResponse = await fetch(`${API_BASE}/init`, {
             method: 'POST'
         });
-        const initData = await initResponse.json();
 
-        if (initData.success) {
-            spreadsheetUrl = initData.spreadsheet_url;
-            document.getElementById('sheetLink').href = spreadsheetUrl;
+        if (!initResponse.ok) {
+            throw new Error('Server returned error');
         }
 
         // Load data
@@ -80,9 +78,21 @@ async function initializeApp() {
         hideLoading();
 
     } catch (error) {
-        console.error('Failed to initialize:', error);
-        hideLoading();
-        showError('Failed to connect to server. Make sure the backend is running.');
+        console.error('Failed to initialize from server:', error);
+
+        // Try to load from localStorage as fallback
+        const localData = loadFromLocalStorage();
+        if (localData && localData.habits && localData.habits.length > 0) {
+            habitsData = localData.habits;
+            datesData = localData.dates || [];
+            renderHabitTable();
+            renderCharts();
+            hideLoading();
+            console.log('Loaded data from localStorage');
+        } else {
+            hideLoading();
+            showError('Failed to connect to server. Make sure the backend is running.');
+        }
     }
 }
 
