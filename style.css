@@ -1367,6 +1367,17 @@ body::before {
     color: var(--accent-secondary);
 }
 
+/* Progress Badge */
+.progress-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: rgba(139, 92, 246, 0.2);
+    color: var(--text-primary);
+}
+
 /* ===================================
    Mobile Responsive Styles
    =================================== */

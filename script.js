@@ -278,22 +278,37 @@ function renderHabitTable() {
             tr.appendChild(td);
         });
 
+        // Calculate progress and streak locally
+        const dailyStatus = habit.daily_status || {};
+        let completed = 0;
+        let total = 0;
+        let currentStreak = 0;
+        let tempStreak = 0;
+
+        datesData.forEach(date => {
+            const s = dailyStatus[date];
+            if (s === '✓') {
+                completed++;
+                tempStreak++;
+                currentStreak = Math.max(currentStreak, tempStreak);
+            } else if (s === '✗') {
+                tempStreak = 0;
+            }
+            if (s === '✓' || s === '✗') total++;
+        });
+
+        const habitProgress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
         // Progress cell
         const progressTd = document.createElement('td');
-        progressTd.innerHTML = `
-            <div class="progress-cell">
-                <div class="mini-progress-bar">
-                    <div class="mini-progress-fill" style="width: ${habit.progress}%"></div>
-                </div>
-                <span class="progress-text">${habit.progress}%</span>
-            </div>
-        `;
+        progressTd.classList.add('progress-cell');
+        progressTd.innerHTML = `<span class="progress-badge">${habitProgress}%</span>`;
         tr.appendChild(progressTd);
 
-        // Streak cell
+        // Streak cell with fire emoji
         const streakTd = document.createElement('td');
         streakTd.classList.add('streak-cell');
-        streakTd.textContent = habit.streak || 0;
+        streakTd.innerHTML = currentStreak >= 3 ? `🔥${currentStreak}` : `${currentStreak}`;
         tr.appendChild(streakTd);
 
         // Actions cell
@@ -421,31 +436,34 @@ function renderHabitProgressChart() {
         habitProgressChart.destroy();
     }
 
-    const labels = habitsData.map(h => h.name.substring(0, 15));
-    const data = habitsData.map(h => h.progress);
+    // Calculate overall completion stats
+    let totalCompleted = 0;
+    let totalMissed = 0;
+    let totalPending = 0;
 
-    const gradientColors = [
-        'rgba(139, 92, 246, 0.8)',
-        'rgba(236, 72, 153, 0.8)',
-        'rgba(249, 115, 22, 0.8)',
-        'rgba(34, 197, 94, 0.8)',
-        'rgba(59, 130, 246, 0.8)',
-        'rgba(168, 85, 247, 0.8)',
-        'rgba(244, 63, 94, 0.8)',
-        'rgba(20, 184, 166, 0.8)',
-        'rgba(245, 158, 11, 0.8)',
-        'rgba(99, 102, 241, 0.8)'
-    ];
+    habitsData.forEach(habit => {
+        const status = habit.daily_status || {};
+        datesData.forEach(date => {
+            const s = status[date];
+            if (s === '✓') totalCompleted++;
+            else if (s === '✗') totalMissed++;
+            else totalPending++;
+        });
+    });
 
     habitProgressChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: labels,
+            labels: ['✓ Done', '✗ Missed', '○ Pending'],
             datasets: [{
-                data: data,
-                backgroundColor: gradientColors.slice(0, data.length),
+                data: [totalCompleted, totalMissed, totalPending],
+                backgroundColor: [
+                    'rgba(34, 197, 94, 0.9)',
+                    'rgba(239, 68, 68, 0.9)',
+                    'rgba(100, 116, 139, 0.4)'
+                ],
                 borderWidth: 0,
-                hoverOffset: 10
+                hoverOffset: 8
             }]
         },
         options: {
@@ -453,17 +471,17 @@ function renderHabitProgressChart() {
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    position: 'right',
+                    position: 'bottom',
                     labels: {
                         color: getComputedStyle(document.body).getPropertyValue('--text-secondary').trim(),
-                        font: { size: 11 },
-                        padding: 10,
-                        boxWidth: 12
+                        font: { size: 12 },
+                        padding: 12,
+                        boxWidth: 14
                     }
                 },
                 tooltip: {
                     callbacks: {
-                        label: (context) => `${context.label}: ${context.raw}%`
+                        label: (context) => `${context.label}: ${context.raw}`
                     }
                 }
             },
