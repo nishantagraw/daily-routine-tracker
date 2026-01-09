@@ -12,7 +12,28 @@ let currentView = 'weekly';
 let currentWeek = 1;
 let habitsData = [];
 let datesData = [];
-let spreadsheetUrl = '';
+
+// LocalStorage keys for data persistence
+const STORAGE_KEY = 'routine_tracker_data';
+
+// Save data to localStorage
+function saveToLocalStorage() {
+    const data = { habits: habitsData, dates: datesData };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// Load data from localStorage
+function loadFromLocalStorage() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        try {
+            return JSON.parse(saved);
+        } catch (e) {
+            console.error('Failed to parse localStorage data:', e);
+        }
+    }
+    return null;
+}
 
 // Chart instances
 let habitProgressChart = null;
@@ -74,44 +95,84 @@ async function loadStats() {
         const response = await fetch(`${API_BASE}/stats`);
         const stats = await response.json();
 
-        // Update stat cards
-        document.getElementById('overallProgress').textContent = `${stats.overall_progress}%`;
-        document.getElementById('progressBar').style.width = `${stats.overall_progress}%`;
-        document.getElementById('bestStreak').textContent = stats.best_streak;
-        document.getElementById('totalCompleted').textContent = stats.total_completed;
-        document.getElementById('totalMissed').textContent = stats.total_missed;
+        // Update stat cards with default values if undefined
+        const progress = stats.overall_progress ?? 0;
+        const streak = stats.best_streak ?? 0;
+        const completed = stats.total_completed ?? 0;
+        const missed = stats.total_missed ?? 0;
 
-        if (stats.spreadsheet_url) {
-            spreadsheetUrl = stats.spreadsheet_url;
-            document.getElementById('sheetLink').href = spreadsheetUrl;
-        }
+        document.getElementById('overallProgress').textContent = `${progress}%`;
+        document.getElementById('progressBar').style.width = `${progress}%`;
+        document.getElementById('bestStreak').textContent = streak;
+        document.getElementById('totalCompleted').textContent = completed;
+        document.getElementById('totalMissed').textContent = missed;
 
     } catch (error) {
         console.error('Failed to load stats:', error);
+        // Set defaults on error
+        document.getElementById('overallProgress').textContent = '0%';
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('bestStreak').textContent = '0';
+        document.getElementById('totalCompleted').textContent = '0';
+        document.getElementById('totalMissed').textContent = '0';
     }
 }
 
 async function loadHabits() {
     try {
         let response;
+        let serverHabits = [];
+        let serverDates = [];
 
         if (currentView === 'weekly') {
             response = await fetch(`${API_BASE}/week/${currentWeek}`);
             const weekData = await response.json();
-            habitsData = weekData.habits || [];
-            datesData = weekData.dates || [];
+            serverHabits = weekData.habits || [];
+            serverDates = weekData.dates || [];
         } else {
             response = await fetch(`${API_BASE}/habits`);
             const data = await response.json();
-            habitsData = data.habits || [];
-            datesData = data.dates || [];
+            serverHabits = data.habits || [];
+            serverDates = data.dates || [];
         }
+
+        // Merge with localStorage data (localStorage takes priority for status)
+        const localData = loadFromLocalStorage();
+        if (localData && localData.habits) {
+            // Create a map of local habits for quick lookup
+            const localHabitsMap = {};
+            localData.habits.forEach(h => {
+                localHabitsMap[h.name] = h.daily_status || {};
+            });
+
+            // Merge local status into server habits
+            serverHabits.forEach(habit => {
+                if (localHabitsMap[habit.name]) {
+                    habit.daily_status = { ...habit.daily_status, ...localHabitsMap[habit.name] };
+                }
+            });
+        }
+
+        habitsData = serverHabits;
+        datesData = serverDates;
+
+        // Save merged data to localStorage
+        saveToLocalStorage();
 
         renderHabitTable();
         renderCharts();
 
     } catch (error) {
         console.error('Failed to load habits:', error);
+
+        // Try to load from localStorage if server fails
+        const localData = loadFromLocalStorage();
+        if (localData) {
+            habitsData = localData.habits || [];
+            datesData = localData.dates || [];
+            renderHabitTable();
+            renderCharts();
+        }
     }
 }
 
@@ -240,9 +301,17 @@ async function toggleStatus(habitName, date, cell) {
         cell.style.transform = 'scale(1)';
     }, 150);
 
-    // Update server
+    // Update local data and save to localStorage immediately
+    const habit = habitsData.find(h => h.name === habitName);
+    if (habit) {
+        if (!habit.daily_status) habit.daily_status = {};
+        habit.daily_status[date] = newSymbol;
+        saveToLocalStorage();
+    }
+
+    // Update server (in background, don't wait)
     try {
-        const response = await fetch(`${API_BASE}/habits/update`, {
+        fetch(`${API_BASE}/habits/status`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -252,19 +321,13 @@ async function toggleStatus(habitName, date, cell) {
                 date: date,
                 status: newSymbol
             })
-        });
+        }).catch(e => console.log('Server sync failed, but local save succeeded'));
 
-        if (response.ok) {
-            // Reload stats after update
-            await loadStats();
-            // Reload habits to get updated progress
-            await loadHabits();
-        }
+        // Reload stats after update
+        await loadStats();
 
     } catch (error) {
         console.error('Failed to update status:', error);
-        // Revert on error
-        await loadHabits();
     }
 }
 
