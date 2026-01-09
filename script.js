@@ -241,8 +241,8 @@ function renderHabitTable() {
         headerRow.appendChild(th);
     });
 
-    // Add progress, streak, and actions headers
-    headerRow.innerHTML += '<th class="progress-col">Progress</th><th class="streak-col">Streak 🔥</th><th class="actions-col">Actions</th>';
+    // Add progress and actions headers (removed streak)
+    headerRow.innerHTML += '<th class="progress-col">Progress</th><th class="actions-col">Actions</th>';
 
     // Add habit rows
     habitsData.forEach((habit, index) => {
@@ -278,45 +278,37 @@ function renderHabitTable() {
             tr.appendChild(td);
         });
 
-        // Calculate progress and streak locally
+        // Calculate progress locally
         const dailyStatus = habit.daily_status || {};
         let completed = 0;
         let total = 0;
-        let currentStreak = 0;
-        let tempStreak = 0;
 
         datesData.forEach(date => {
             const s = dailyStatus[date];
-            if (s === '✓') {
-                completed++;
-                tempStreak++;
-                currentStreak = Math.max(currentStreak, tempStreak);
-            } else if (s === '✗') {
-                tempStreak = 0;
-            }
+            if (s === '✓') completed++;
             if (s === '✓' || s === '✗') total++;
         });
 
         const habitProgress = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const barColor = habitProgress >= 70 ? '#22c55e' : habitProgress >= 40 ? '#f59e0b' : '#64748b';
 
-        // Progress cell
+        // Progress bar cell
         const progressTd = document.createElement('td');
         progressTd.classList.add('progress-cell');
-        progressTd.innerHTML = `<span class="progress-badge">${habitProgress}%</span>`;
+        progressTd.innerHTML = `
+            <div class="habit-progress-bar">
+                <div class="habit-progress-fill" style="width: ${habitProgress}%; background: ${barColor}"></div>
+            </div>
+            <span class="habit-progress-text">${habitProgress}%</span>
+        `;
         tr.appendChild(progressTd);
 
-        // Streak cell with fire emoji
-        const streakTd = document.createElement('td');
-        streakTd.classList.add('streak-cell');
-        streakTd.innerHTML = currentStreak >= 3 ? `🔥${currentStreak}` : `${currentStreak}`;
-        tr.appendChild(streakTd);
-
-        // Actions cell
+        // Actions cell (removed streak)
         const actionsTd = document.createElement('td');
         actionsTd.classList.add('actions-cell');
         actionsTd.innerHTML = `
-            <button class="edit-btn" onclick="editHabit('${habit.name.replace(/'/g, "\\'")}')">✏️</button>
-            <button class="delete-btn" onclick="deleteHabit('${habit.name.replace(/'/g, "\\'")}')">🗑️</button>
+            <button class="edit-btn" onclick="editHabit('${habit.name.replace(/'/g, "\\'")}')" title="Edit">✏️</button>
+            <button class="delete-btn" onclick="deleteHabit('${habit.name.replace(/'/g, "\\'")}')" title="Delete">🗑️</button>
         `;
         tr.appendChild(actionsTd);
 
@@ -424,7 +416,6 @@ function updateWeekButtons() {
 // ===================================
 
 function renderCharts() {
-    renderHabitProgressChart();
     renderWeeklyTrendChart();
     renderDailyCompletionChart();
 }

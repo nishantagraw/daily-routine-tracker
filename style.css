@@ -1367,15 +1367,34 @@ body::before {
     color: var(--accent-secondary);
 }
 
-/* Progress Badge */
-.progress-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 12px;
+/* Habit Progress Bar */
+.progress-cell {
+    min-width: 80px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.habit-progress-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(100, 100, 120, 0.3);
+    border-radius: 4px;
+    overflow: hidden;
+    min-width: 50px;
+}
+
+.habit-progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.habit-progress-text {
     font-size: 0.75rem;
     font-weight: 600;
-    background: rgba(139, 92, 246, 0.2);
-    color: var(--text-primary);
+    color: var(--text-secondary);
+    min-width: 30px;
 }
 
 /* ===================================
