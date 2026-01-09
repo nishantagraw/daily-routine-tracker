@@ -24,10 +24,10 @@ let dailyCompletionChart = null;
 // ===================================
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Set initial week based on current date (Jan 5 = week 1)
+    // Set initial week based on current date (Jan 10 = week 1)
     const today = new Date();
-    if (today.getMonth() === 0 && today.getDate() >= 5) {
-        currentWeek = Math.ceil((today.getDate() - 4) / 7);
+    if (today.getMonth() === 0 && today.getDate() >= 10) {
+        currentWeek = Math.ceil((today.getDate() - 9) / 7);
         currentWeek = Math.min(currentWeek, 4);
     }
 

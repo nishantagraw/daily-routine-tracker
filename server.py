@@ -30,7 +30,7 @@ DEFAULT_HABITS = [
 ]
 
 def get_january_dates():
-    return [f"{i:02d} Jan" for i in range(5, 32)]
+    return [f"{i:02d} Jan" for i in range(10, 32)]  # Start from Jan 10
 
 # In-memory data
 app_data = {
