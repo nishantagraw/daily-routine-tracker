@@ -81,6 +81,15 @@ def serve_static(filename):
 # API Routes
 # ===================================
 
+@app.route('/api/init', methods=['POST', 'GET'])
+def init_app():
+    """Initialize the app - required by frontend"""
+    return jsonify({
+        "success": True,
+        "spreadsheet_url": "",
+        "message": "App initialized"
+    })
+
 @app.route('/api/habits', methods=['GET'])
 def get_habits():
     return jsonify({
