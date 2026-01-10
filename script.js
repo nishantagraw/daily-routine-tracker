@@ -102,19 +102,35 @@ async function initializeApp() {
 
 // Calculate stats from local data instantly
 function calculateLocalStats() {
+    const totalHabits = habitsData.length;
+    const totalDays = datesData.length;
+    const totalPossible = totalHabits * totalDays; // All possible checkboxes
+
     let totalCompleted = 0;
     let totalMissed = 0;
     let bestStreak = 0;
+
+    // Get today's date string
+    const today = new Date();
+    const todayStr = `${String(today.getDate()).padStart(2, '0')} Jan`;
+    let todayCompleted = 0;
+
+    // Count perfect days (days where ALL habits are completed)
+    const dayCompletions = {};
+    datesData.forEach(date => dayCompletions[date] = { done: 0, total: totalHabits });
 
     habitsData.forEach(habit => {
         let streak = 0;
         const status = habit.daily_status || {};
 
-        Object.values(status).forEach(s => {
+        datesData.forEach(date => {
+            const s = status[date];
             if (s === '✓') {
                 totalCompleted++;
                 streak++;
                 bestStreak = Math.max(bestStreak, streak);
+                dayCompletions[date].done++;
+                if (date === todayStr) todayCompleted++;
             } else if (s === '✗') {
                 totalMissed++;
                 streak = 0;
@@ -122,10 +138,16 @@ function calculateLocalStats() {
         });
     });
 
-    const total = totalCompleted + totalMissed;
-    const progress = total > 0 ? Math.round((totalCompleted / total) * 100) : 0;
+    // Count perfect days
+    let perfectDays = 0;
+    Object.values(dayCompletions).forEach(d => {
+        if (d.done === d.total && d.total > 0) perfectDays++;
+    });
 
-    return { progress, totalCompleted, totalMissed, bestStreak };
+    // Overall progress = completed / total possible (not just marked ones)
+    const progress = totalPossible > 0 ? Math.round((totalCompleted / totalPossible) * 100) : 0;
+
+    return { progress, totalCompleted, totalMissed, bestStreak, todayCompleted, totalHabits, perfectDays };
 }
 
 // Update stats display instantly
@@ -134,7 +156,7 @@ function updateStatsDisplay() {
 
     document.getElementById('overallProgress').textContent = `${stats.progress}%`;
     document.getElementById('progressBar').style.width = `${stats.progress}%`;
-    document.getElementById('bestStreak').textContent = stats.bestStreak;
+    document.getElementById('todayProgress').textContent = `${stats.todayCompleted}/${stats.totalHabits}`;
     document.getElementById('totalCompleted').textContent = stats.totalCompleted;
     document.getElementById('totalMissed').textContent = stats.totalMissed;
 }
@@ -278,18 +300,17 @@ function renderHabitTable() {
             tr.appendChild(td);
         });
 
-        // Calculate progress locally
+        // Calculate progress locally (completed / total days, not just marked)
         const dailyStatus = habit.daily_status || {};
         let completed = 0;
-        let total = 0;
+        const totalDays = datesData.length;
 
         datesData.forEach(date => {
-            const s = dailyStatus[date];
-            if (s === '✓') completed++;
-            if (s === '✓' || s === '✗') total++;
+            if (dailyStatus[date] === '✓') completed++;
         });
 
-        const habitProgress = total > 0 ? Math.round((completed / total) * 100) : 0;
+        // Progress = completed days / total days
+        const habitProgress = totalDays > 0 ? Math.round((completed / totalDays) * 100) : 0;
         const barColor = habitProgress >= 70 ? '#22c55e' : habitProgress >= 40 ? '#f59e0b' : '#64748b';
 
         // Progress bar cell
@@ -416,6 +437,7 @@ function updateWeekButtons() {
 // ===================================
 
 function renderCharts() {
+    renderHabitProgressChart();
     renderWeeklyTrendChart();
     renderDailyCompletionChart();
 }

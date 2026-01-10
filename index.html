@@ -58,11 +58,11 @@
                     </div>
                 </div>
 
-                <div class="stat-card stat-streak">
-                    <div class="stat-icon">🔥</div>
+                <div class="stat-card stat-today">
+                    <div class="stat-icon">📅</div>
                     <div class="stat-content">
-                        <span class="stat-value" id="bestStreak">0</span>
-                        <span class="stat-label">Best Streak</span>
+                        <span class="stat-value" id="todayProgress">0/11</span>
+                        <span class="stat-label">Today's Done</span>
                     </div>
                 </div>
 
@@ -151,6 +151,13 @@
         <!-- Charts Section -->
         <section class="charts-section">
             <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>📊 Overall Status</h3>
+                    <div class="chart-container">
+                        <canvas id="habitProgressChart"></canvas>
+                    </div>
+                </div>
+
                 <div class="chart-card">
                     <h3>📈 Weekly Trend</h3>
                     <div class="chart-container">
